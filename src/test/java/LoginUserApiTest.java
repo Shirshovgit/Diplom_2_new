@@ -1,3 +1,4 @@
+import POJO.UserData;
 import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.Response;
@@ -10,32 +11,18 @@ import java.util.List;
 
 public class LoginUserApiTest extends BaseTest {
 
-    private String jsonBody = userFieldsCreate();
-
-    private List<String> bodyRequestLoginUser = Arrays.asList("{\n" +
-            "\"email\": \"test-data@yandex.ru\",\n" +
-            "\"name\": \"Username\"\n" +
-            "}", "{\n" +
-            "\"password\": \"1234\",\n" +
-            "\"name\": \"Username\"\n" +
-            "}", "{\n" +
-            "\"password\": \"1234\",\n" +
-            "\"email\": \"test-data\"\n" +
-            "}", "{\n" +
-            "\"password\": \"\",\n" +
-            "\"email\": \"test-data@yandex.ru\"\n" +
-            "}");
+    private final List<UserData> bodyRequestLoginUser = Arrays.asList(userWithoutPassword, userWithoutEmail, userWithoutName, userPasswordIsNull);
 
     @Test
     @DisplayName("Авторизация пользователя")
     @Description("Провреяем, что можно успешно авторизоваться под существующим пользователем")
     public void shouldSuccessLoginUser() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
 
-        Response loginUser = sendPostRequest(pathLoginUser, jsonBody);
+        Response loginUser = sendPostRequest(pathLoginUser, userFullData);
         compareStatusCodeResponse(loginUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(loginUser, "success", true);
 
@@ -45,7 +32,7 @@ public class LoginUserApiTest extends BaseTest {
     @DisplayName("Авторизация пользователя")
     @Description("Провреяем, что при неверном логине/пароле или отсутсвии одного из полей авторизация не произойдет")
     public void shouldFailLoginUser() {
-        for (String body : bodyRequestLoginUser) {
+        for (UserData body : bodyRequestLoginUser) {
             Response loginUser = sendPostRequest(pathLoginUser, body);
             compareStatusCodeResponse(loginUser, statusCode.FAILED_401.code);
             compareBodyResponse(loginUser, "success", false);
@@ -56,7 +43,7 @@ public class LoginUserApiTest extends BaseTest {
     @After
     @Step("Удаляем юзера по завершению теста")
     public void deleteUserAfterTest() {
-        Response checkLogin = sendPostRequest(pathLoginUser, jsonBody);
+        Response checkLogin = sendPostRequest(pathLoginUser, userFullData);
         if (getAccessToken(checkLogin) != null) {
             Response deleteUser = sendDeleteRequest(pathAuthUser, getAccessToken(checkLogin));
             compareBodyResponse(deleteUser, "success", true);

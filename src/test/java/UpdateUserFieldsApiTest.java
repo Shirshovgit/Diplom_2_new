@@ -1,3 +1,5 @@
+import POJO.UserData;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.Response;
@@ -8,21 +10,20 @@ import org.junit.Test;
 
 public class UpdateUserFieldsApiTest extends BaseTest {
 
-    private String jsonBody = userFieldsCreate();
-
+    private final Faker faker = new Faker();
 
     @Test
     @DisplayName("Обновление данных пользователя")
     @Description("Провреяем, что можно успешно обновить даннные пользователя")
     public void shouldSuccessUpdateUser() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
         String userData = createUser.jsonPath().get("user").toString();
 
-        String jsonBodyUpdateUser = userFieldsCreate();
-        Response updateUser = sendPathRequest(pathAuthUser, jsonBodyUpdateUser, getAccessToken(createUser));
+        UserData userFullDataUpdate = new UserData(faker.name().fullName(), faker.name().firstName() + "2@yandex.ru", "password");
+        Response updateUser = sendPathRequest(pathAuthUser, userFullDataUpdate, getAccessToken(createUser));
         compareStatusCodeResponse(updateUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(updateUser, "success", true);
         String userUpdateData = updateUser.jsonPath().get("user").toString();
@@ -35,12 +36,12 @@ public class UpdateUserFieldsApiTest extends BaseTest {
     @Description("Провреяем, что для не авторизованного пользователя обновление данных не произойдет")
     public void shouldFailUpdateUser() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
 
-        String jsonBodyUpdateUser = userFieldsCreate();
-        Response updateUser = sendPathRequest(pathAuthUser, jsonBodyUpdateUser);
+        UserData userFullDataUpdate = new UserData(faker.name().fullName(), faker.name().firstName() + "@yandex.ru", "password");
+        Response updateUser = sendPathRequest(pathAuthUser, userFullDataUpdate);
         compareStatusCodeResponse(updateUser, statusCode.FAILED_401.code);
         compareBodyResponse(updateUser, "success", false);
         compareBodyResponse(updateUser, "message", "You should be authorised");
@@ -52,7 +53,7 @@ public class UpdateUserFieldsApiTest extends BaseTest {
     @Description("Провреяем, что вернется ошибка, если при изменении данных указана уже ранее используемая почта")
     public void shouldFailUpdateUserEmailAlreadyExists() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
         String jsonBodyUpdateUser = "{\n" +
@@ -69,7 +70,7 @@ public class UpdateUserFieldsApiTest extends BaseTest {
     @After
     @Step("Удаляем юзера по завершению теста")
     public void deleteUserAfterTest() {
-        Response checkLogin = sendPostRequest(pathLoginUser, jsonBody);
+        Response checkLogin = sendPostRequest(pathLoginUser, userFullData);
         if (getAccessToken(checkLogin) != null) {
             Response deleteUser = sendDeleteRequest(pathAuthUser, getAccessToken(checkLogin));
             compareBodyResponse(deleteUser, "success", true);

@@ -1,6 +1,9 @@
+import POJO.UserData;
+import com.github.javafaker.Faker;
 import io.qameta.allure.Step;
 import io.restassured.RestAssured;
 import io.restassured.response.Response;
+import POJO.Ingredients;
 import org.junit.Assert;
 import org.junit.Before;
 
@@ -12,12 +15,29 @@ import static org.hamcrest.CoreMatchers.equalTo;
 
 public class BaseTest {
 
+    private final Faker faker = new Faker();
+    private final Random random = new Random();
+    private final String email = faker.name().firstName() + random.nextInt(10000000) + "@yandex.ru";
+    private final String userName = faker.name().fullName() + random.nextInt(10000000);
+    private final String userPassword = "password";
+
     public String pathCreateUser = "/api/auth/register";
     public String pathLoginUser = "/api/auth/login";
 
     public String pathAuthUser = "/api/auth/user";
 
     public String pathOrder = "/api/orders";
+
+    public String pathIngredients = "/api/ingredients";
+
+    UserData userWithoutPassword = new UserData(userName, email, "");
+    UserData userWithoutEmail = new UserData(userName, "", userPassword);
+
+    UserData userWithoutName = new UserData("", email, userPassword);
+
+    UserData userPasswordIsNull = new UserData("", email, "");
+
+    UserData userFullData = new UserData(userName, email, userPassword);
 
     enum statusCode {
         SUCCESS_200(200),
@@ -37,10 +57,6 @@ public class BaseTest {
 
     }
 
-    public String ingredients = "{\n" +
-            "\"ingredients\": [\"61c0c5a71d1f82001bdaaa70\",\"61c0c5a71d1f82001bdaaa75\"]\n" +
-            "}";
-
     @Before
     public void setUp() {
         RestAssured.baseURI = "https://stellarburgers.nomoreparties.site";
@@ -58,13 +74,35 @@ public class BaseTest {
         }
     }
 
-    public Response sendPostRequest(String pathRequest, String pathBody, String bearerToken) {
+    public Response sendPostRequest(String pathRequest, Ingredients ingredients) {
+        step("Отправляем Post в ручку " + pathRequest);
+        {
+            Response response = given().auth().none()
+                    .header("Content-type", "application/json")
+                    .body(ingredients)
+                    .post(pathRequest);
+            return response;
+        }
+    }
+
+    public Response sendPostRequest(String pathRequest, UserData userData) {
+        step("Отправляем Post в ручку " + pathRequest);
+        {
+            Response response = given().auth().none()
+                    .header("Content-type", "application/json")
+                    .body(userData)
+                    .post(pathRequest);
+            return response;
+        }
+    }
+
+    public Response sendPostRequest(String pathRequest, Ingredients ingredients, String bearerToken) {
         step("Отправляем Post в ручку " + pathRequest);
         {
             Response response = given()
                     .header("Content-type", "application/json")
                     .header("authorization", bearerToken)
-                    .body(pathBody)
+                    .body(ingredients)
                     .post(pathRequest);
             return response;
         }
@@ -82,12 +120,24 @@ public class BaseTest {
         }
     }
 
-    public Response sendPathRequest(String pathRequest, String pathBody) {
+    public Response sendPathRequest(String pathRequest, UserData userData, String bearerToken) {
         step("Отправляем Post в ручку " + pathRequest);
         {
             Response response = given()
                     .header("Content-type", "application/json")
-                    .body(pathBody)
+                    .header("authorization", bearerToken)
+                    .body(userData)
+                    .patch(pathRequest);
+            return response;
+        }
+    }
+
+    public Response sendPathRequest(String pathRequest, UserData UserData) {
+        step("Отправляем Post в ручку " + pathRequest);
+        {
+            Response response = given()
+                    .header("Content-type", "application/json")
+                    .body(UserData)
                     .patch(pathRequest);
             return response;
         }
@@ -125,14 +175,6 @@ public class BaseTest {
         }
     }
 
-    public String userFieldsCreate() {
-        Random random = new Random();
-        String email = "something" + random.nextInt(10000000) + "@yandex.ru";
-        String userName = "name" + random.nextInt(10000000);
-        String json = "{\"email\": \"" + email + "\", \"password\": \"aaa\", \"name\": \"" + userName + "\"}";
-        return json;
-    }
-
     @Step("Сравниваем статус кода ответа")
     public void compareStatusCodeResponse(Response response, Integer code) {
         Assert.assertTrue("Проверка завершилось ошибкой " + response.jsonPath().get().toString() + "Code: " + response.thenReturn().statusCode(),
@@ -153,6 +195,20 @@ public class BaseTest {
     public String getAccessToken(Response response) {
         if (response.jsonPath().get("success").toString() == "true") {
             return response.jsonPath().get("accessToken").toString();
+        }
+        return null;
+    }
+
+
+    @Step("Получаем хэш первого ингредиента из списка ингредиентов")
+    public String getIngredients(Response response) {
+        if (response.jsonPath().get("success").toString() == "true") {
+            String hash = response.jsonPath().get("data._id").toString();
+
+            StringBuilder sb = new StringBuilder(hash);
+            String hashId = sb.deleteCharAt(0).toString();
+            String[] split = hashId.split(",");
+            return split[0];
         }
         return null;
     }

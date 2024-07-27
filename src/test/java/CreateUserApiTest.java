@@ -1,3 +1,4 @@
+import POJO.UserData;
 import io.qameta.allure.Step;
 import io.qameta.allure.junit4.DisplayName;
 import io.restassured.response.Response;
@@ -9,28 +10,17 @@ import java.util.Arrays;
 import java.util.List;
 
 public class CreateUserApiTest extends BaseTest {
-    private List<String> bodyRequestCreateUser = Arrays.asList("{\n" +
-            "\"email\": \"test-data@yandex.ru\",\n" +
-            "\"name\": \"Username\"\n" +
-            "}", "{\n" +
-            "\"password\": \"1234\",\n" +
-            "\"name\": \"Username\"\n" +
-            "}", "{\n" +
-            "\"password\": \"1234\",\n" +
-            "\"email\": \"test-data@yandex.ru\"\n" +
-            "}");
 
-    private String jsonBody = userFieldsCreate();
+    private final List<UserData> bodyRequestCreateUser = Arrays.asList(userWithoutPassword, userWithoutEmail, userWithoutName);
 
     @Test
     @DisplayName("Создание пользователя")
     @Description("Провреяем, что можно успешно создать нового пользователя")
     public void shouldSuccessCreateUser() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
-        //Проверить тело ответа на регистрацию?
     }
 
     @Test
@@ -38,11 +28,11 @@ public class CreateUserApiTest extends BaseTest {
     @Description("Провреяем, повторное создание пользователя и возврат ошибки на попытку создать такого пользователя")
     public void shouldFailWithRepeatedCreateUser() {
 
-        Response createUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createUser, BaseTest.statusCode.SUCCESS_200.code);
         compareBodyResponse(createUser, "success", true);
 
-        Response createRepeatedUser = sendPostRequest(pathCreateUser, jsonBody);
+        Response createRepeatedUser = sendPostRequest(pathCreateUser, userFullData);
         compareStatusCodeResponse(createRepeatedUser, statusCode.FAILED_403.code);
         compareBodyResponse(createRepeatedUser, "success", false);
         compareBodyResponse(createRepeatedUser, "message", "User already exists");
@@ -53,20 +43,19 @@ public class CreateUserApiTest extends BaseTest {
     @DisplayName("Создание пользователя, не заполнено одно из полей")
     @Description("Провреяем, создание пользователя, если не передать одно из полей email/password/userName")
     public void shouldFailCreateUser() {
-        for (String body : bodyRequestCreateUser) {
+        for (UserData body : bodyRequestCreateUser) {
 
             Response createUser = sendPostRequest(pathCreateUser, body);
             compareStatusCodeResponse(createUser, statusCode.FAILED_403.code);
             compareBodyResponse(createUser, "success", false);
             compareBodyResponse(createUser, "message", "Email, password and name are required fields");
-
         }
     }
 
     @After
     @Step("Удаляем юзера по завершению теста")
     public void deleteUserAfterTest() {
-        Response checkLogin = sendPostRequest(pathLoginUser, jsonBody);
+        Response checkLogin = sendPostRequest(pathLoginUser, userFullData);
         if (getAccessToken(checkLogin) != null) {
             Response deleteUser = sendDeleteRequest(pathAuthUser, getAccessToken(checkLogin));
             compareBodyResponse(deleteUser, "success", true);
